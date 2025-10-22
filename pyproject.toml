@@ -1,0 +1,26 @@
+[project]
+name = "behavior-classifier"
+version = "0.1.0"
+description = "Drosophila behavior classification pipeline with Config package"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["codes.Config", "codes.BehaviorClassifier"]
+package-dir = {"" = "."}
+
