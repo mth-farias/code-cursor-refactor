@@ -32,8 +32,6 @@ from __future__ import annotations
 from .experiment import EXPERIMENT
 from .color import COLOR
 from .param import PARAM
+from .path import PATH
 
-# TODO: Import path module when it is refactored
-# from .path import PATH
-
-__all__ = ["EXPERIMENT", "COLOR", "PARAM"]
+__all__ = ["EXPERIMENT", "COLOR", "PARAM", "PATH"]
