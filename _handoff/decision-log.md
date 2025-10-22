@@ -10,7 +10,7 @@
 
 This log captures **why** decisions were made, not just **what** was decided.
 
-**Current Decisions**: 8 ADRs
+**Current Decisions**: 14 ADRs (8 from Session 1, 6 from Session 2)
 
 ---
 
@@ -376,7 +376,330 @@ Clean git log, details captured in handoff docs.
 
 ---
 
+## ADR-009: Experiment Root Configuration (path.py)
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: path.py needs configurable experiment root, unlike param.py
+
+### Decision
+
+Use **auto-detect with optional override**:
+
+```python
+# Default behavior (auto-detect)
+from Config.path import PATH
+print(PATH["pExperimentalFolder"])  # Auto-detected
+
+# Override if needed
+from Config.path import configure
+PATH = configure(root=Path("/custom/path"))
+```
+
+### Rationale
+
+**Three Options Considered**:
+
+1. **Argument required**: `configure(root: Path)` - Explicit but breaks consistency
+2. **Global setter**: Two-step process, mutation feels wrong
+3. **Auto-detect + optional override** ✅ - Best UX
+
+**Why Option 3**:
+- Works out-of-box for most users (Colab, Jupyter, local)
+- Consistent with other modules (no-arg configure)
+- Power users can override when needed
+- Backward compatible (existing code works)
+
+**Environment Detection**:
+- Colab: `/content/drive/MyDrive/Experiments`
+- Jupyter: `{cwd}/Experiments`
+- Local: `{cwd}/Experiments`
+
+### Outcome
+
+Best user experience achieved  
+Consistency with color.py/experiment.py maintained  
+Flexibility for advanced use cases
+
+### References
+
+- `plans/config-refactor/04-path/decisions.md` (detailed rationale)
+- `references/original/Config/path.py` (original auto-detect logic)
+
+---
+
+## ADR-010: Configure() Delegation for All Workers (path.py)
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: path.py has functions, not just data - should we still use configure()?
+
+### Decision
+
+Use `configure()` pattern **for all workers**, even function-only workers.
+
+**Example**:
+```python
+# _path/name_builders.py
+def configure() -> dict[str, callable]:
+    return {
+        "tracked_name": tracked_name,
+        "scored_name": scored_name,
+        # ... all 10 name builders
+    }
+```
+
+### Rationale
+
+**Three Options Considered**:
+
+1. **configure() for all** ✅ - Consistent pattern
+2. **Direct imports** - Simpler but inconsistent
+3. **Hybrid** (data vs functions) - Pragmatic but inconsistent
+
+**Why Option 1**:
+- Consistency across all Config modules
+- Single point for testing (test configure())
+- Future-proof (easy to add configuration later)
+- Minimal cost (wrapping is trivial)
+
+**Cost vs Benefit**:
+- Cost: Slight wrapping overhead
+- Benefit: Complete consistency, easier to understand
+- Verdict: Benefits outweigh costs
+
+### Outcome
+
+All 8 workers use configure() pattern  
+Consistent API across entire Config package  
+Easy to test and extend
+
+### References
+
+- ADR-004 (original configure() decision)
+- `plans/config-refactor/04-path/decisions.md`
+
+---
+
+## ADR-011: Discovery Function Testing Strategy (path.py)
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: Discovery functions depend on file system - how to test?
+
+### Decision
+
+Use **dual testing strategy**:
+
+1. **Unit Tests** (now): Mock file system for fast feedback
+2. **Integration Tests** (Phase 5): Real fixtures for full validation
+
+**Unit Test Example**:
+```python
+@patch('pathlib.Path.glob')
+def test_g_tracked(mock_glob):
+    mock_glob.return_value = [Path("fly1_tracked.csv")]
+    result = g_tracked()
+    assert len(result) == 1
+```
+
+### Rationale
+
+**Three Options Considered**:
+
+1. **Mock file system** - Fast but doesn't test real behavior
+2. **Test fixtures** - Real but requires setup
+3. **Hybrid (both)** ✅ - Best of both worlds
+
+**Why Option 3**:
+- Unit tests catch obvious errors quickly
+- Integration tests catch subtle bugs
+- Can implement unit tests now, integration later
+- Pragmatic: right tool for each test level
+
+**Deferred Work**:
+- Integration tests with real fixtures → Phase 5
+- Focus on refactoring now, comprehensive testing later
+
+### Outcome
+
+Fast feedback during refactoring  
+Full validation deferred to appropriate time  
+Pragmatic balance of speed and thoroughness
+
+### References
+
+- `plans/config-refactor/04-path/validation-checklist.md`
+
+---
+
+## ADR-012: Defer Mixed PATH Mode to Phase 5 (path.py)
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: Mixed PATH mode (Google Drive input + local output) adds complexity
+
+### Decision
+
+**Defer Mixed PATH mode to Phase 5** (post-refactor enhancement).
+
+**Current Implementation**: Single experiment root  
+**Future Implementation**: Separate input/output roots
+
+### Rationale
+
+**Three Options Considered**:
+
+1. **Implement now** - Complete but adds complexity
+2. **Defer to Phase 5** ✅ - Focus on core first
+3. **Architecture now, implement later** - YAGNI
+
+**Why Option 2**:
+- Core refactoring is more important
+- Need to validate basic functionality first
+- Mixed PATH mode adds significant complexity
+- Can add later without breaking changes
+
+**Risk Mitigation**:
+- Document requirement in planning
+- Design API to be extensible
+- Validate basic paths work first
+
+**Phase 5 Tasks**:
+- Implement separate input/output roots
+- Add background sync detection
+- Test GenerateExperiment.ipynb compatibility
+
+### Outcome
+
+Reduced complexity in refactoring  
+Focus on core functionality  
+Clear path for future enhancement
+
+### References
+
+- User note: "Mixed PATH mode... not implemented yet"
+- `plans/config-refactor/04-path/decisions.md`
+
+---
+
+## ADR-013: Environment Detection Strategy (path.py)
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: Need to detect Colab vs Jupyter vs local for root path
+
+### Decision
+
+Use **module-based detection** + **IPython kernel check**:
+
+```python
+def is_colab() -> bool:
+    try:
+        import google.colab
+        return True
+    except ImportError:
+        return False
+
+def is_jupyter() -> bool:
+    try:
+        shell = get_ipython().__class__.__name__
+        return shell == "ZMQInteractiveShell"
+    except NameError:
+        return False
+```
+
+### Rationale
+
+**Options Considered**:
+
+1. **Check for known modules** ✅ - Simple and reliable
+2. **Check environment variables** - Less reliable
+3. **Check for IPython kernel** - Standard approach
+
+**Why Option 1 + 3**:
+- Module presence is definitive
+- Widely used in the community
+- Original code already uses this pattern
+- Low risk, well-established
+
+**No Breaking Changes**:
+- Preserves original detection logic
+- Just modularizes it into _path/roots.py
+
+### Outcome
+
+Reliable environment detection  
+Follows community standards  
+Backward compatible with original
+
+### References
+
+- `references/original/Config/path.py` (original detection)
+- `_path/roots.py` (implementation location)
+
+---
+
+## ADR-014: Strict Backward Compatibility for path.py
+
+**Date**: 2025-10-22 (Session 2)  
+**Status**: ✅ Accepted  
+**Context**: Must existing imports continue to work after refactoring?
+
+### Decision
+
+**Strict backward compatibility** - All 67 exports preserved at module level.
+
+**Before (original)**:
+```python
+from Config.path import pTracked, tracked_name, g_tracked
+```
+
+**After (refactored)** - MUST STILL WORK:
+```python
+from Config.path import pTracked, tracked_name, g_tracked  # ✅ Works!
+```
+
+**Implementation**:
+```python
+# path.py (controller)
+PATH = configure()
+globals().update(PATH)  # Explode dict to module-level
+__all__ = list(PATH.keys()) + ["PATH"]
+```
+
+### Rationale
+
+**Three Options Considered**:
+
+1. **Strict backward compatibility** ✅ - Zero user migration
+2. **Allow breaking changes** - Cleaner but risky
+3. **Hybrid (new + deprecated old)** - More maintenance
+
+**Why Option 1**:
+- Refactoring should not break existing code
+- User trust (imports remain stable)
+- No deprecation warnings to manage
+- Aligns with REFACTOR_GUIDE.md principles
+
+**Quality Gate 5**: Explicitly validates all 67 exports work
+
+### Outcome
+
+Zero user migration required  
+All existing code continues to work  
+Safe refactoring achieved
+
+### References
+
+- Quality Gate 5 (backward compatibility validation)
+- `plans/config-refactor/04-path/validation-checklist.md`
+
+---
+
 ## Decision Summary Table
+
+### Session 1 Decisions (param.py)
 
 | ADR | Decision | Status | Impact |
 |-----|----------|--------|--------|
@@ -389,17 +712,34 @@ Clean git log, details captured in handoff docs.
 | 007 | _tools/ Separation | ✅ Accepted | Medium - Workspace org |
 | 008 | Concise Commit Messages | ✅ Accepted | Low - Git history |
 
+### Session 2 Decisions (path.py)
+
+| ADR | Decision | Status | Impact |
+|-----|----------|--------|--------|
+| 009 | Experiment Root Configuration | ✅ Accepted | High - User experience |
+| 010 | Configure() for All Workers | ✅ Accepted | Medium - Consistency |
+| 011 | Discovery Function Testing | ✅ Accepted | Medium - Testing strategy |
+| 012 | Defer Mixed PATH Mode | ✅ Accepted | Medium - Complexity management |
+| 013 | Environment Detection Strategy | ✅ Accepted | Medium - Reliability |
+| 014 | Strict Backward Compatibility | ✅ Accepted | High - User trust |
+
 ---
 
 ## Future Decisions
 
-Decisions to make for path.py refactoring:
+Decisions to make for future work:
 
-- [ ] Worker breakdown strategy for path.py
-- [ ] How to handle experiment folder maps (similar to param groups?)
-- [ ] Path derivation helper functions (where do they go?)
-- [ ] Testing strategy for path resolution
-- [ ] Mixed PATH mode handling (Google Drive + local)
+### Phase 5 (Post-Refactor Enhancements)
+- [ ] Mixed PATH mode implementation details (if needed)
+- [ ] Integration test fixture structure
+- [ ] GenerateExperiment.ipynb integration strategy
+- [ ] Full report.py diagnostic functions
+
+### BehaviorClassifier Refactoring
+- [ ] Worker breakdown for BehaviorClassifier
+- [ ] Testing strategy for behavior algorithms
+- [ ] Denoising module structure
+- [ ] Resistant behavior detection architecture
 
 ---
 
@@ -407,10 +747,15 @@ Decisions to make for path.py refactoring:
 
 **When to add**: Any architectural choice that affects >1 file or has alternatives  
 **When to update**: If decision needs revision or proves problematic  
-**When to reference**: During similar decisions (e.g., path.py will reference param.py ADRs)
+**When to reference**: During similar decisions (e.g., path.py references param.py ADRs)
+
+**Review Cadence**: 
+- Before each major refactoring phase
+- When patterns need adjustment
+- When new requirements emerge
 
 ---
 
-**Last Updated**: 2025-10-22, end of Session 1  
-**Next Review**: When starting path.py refactoring
+**Last Updated**: 2025-10-22, end of Session 2  
+**Next Review**: When starting path.py execution (Session 3)
 
