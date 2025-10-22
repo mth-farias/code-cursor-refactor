@@ -1,0 +1,32 @@
+{
+  "phase": "N-phase-name",
+  "date": "2025-10-21T12:00:00Z",
+  "base_directory": "/path/to/project",
+  "total_items": 100,
+  "items_processed": 100,
+  "summary": {
+    "success_count": 80,
+    "failure_count": 15,
+    "skipped_count": 5,
+    "success_rate_percent": 80.0
+  },
+  "results": [
+    {
+      "item": "path/to/file.py",
+      "status": "SUCCESS",
+      "evidence": "Import completed in 45ms",
+      "details": {
+        "field1": "value1",
+        "field2": "value2"
+      }
+    },
+    {
+      "item": "path/to/broken.py",
+      "status": "FAILURE",
+      "error": "Exact error message here",
+      "evidence": "Test output line 123"
+    }
+  ],
+  "notes": "Any observations or issues during this phase"
+}
+

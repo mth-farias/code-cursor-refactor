@@ -1,0 +1,27 @@
+{
+  "issue_id": "ISSUE-001",
+  "title": "Brief issue title",
+  "priority": "BLOCKER|CRITICAL|HIGH|MEDIUM|LOW",
+  "date_discovered": "2025-10-21T12:00:00Z",
+  "discovered_by": "audit-phase-6",
+  "root_cause": "Detailed root cause analysis",
+  "impact": {
+    "files_affected": 100,
+    "features_blocked": ["feature1", "feature2"],
+    "severity": "Critical - prevents 85% of functionality"
+  },
+  "evidence": {
+    "phase_1": "Files exist: phase1-output.json:123",
+    "phase_2": "Import fails: phase2-output.json:456",
+    "phase_3": "Not usable: phase3-output.json:789"
+  },
+  "proposed_solution": {
+    "approach": "Description of fix approach",
+    "files_to_modify": ["list", "of", "files"],
+    "estimated_duration": "30 minutes",
+    "risk_level": "LOW|MEDIUM|HIGH"
+  },
+  "fix_plan_location": "path/to/fix-plan.md",
+  "status": "IDENTIFIED|PLANNED|IN_PROGRESS|FIXED|VERIFIED|CLOSED"
+}
+
